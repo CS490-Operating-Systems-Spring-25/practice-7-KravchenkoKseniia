@@ -1,0 +1,322 @@
+var firstFile
+var secondFile
+var first_file_desc
+var second_file_desc
+var first_file_line
+var second_file_line
+var first_eof
+write 0 to var:first_eof
+var second_eof
+write 0 to var:second_eof
+var counter
+
+var user_input
+
+// Display prompt to enter the value:
+write "Please enter 2 filenames, separated by space you want to compare: " to REG_A
+write "" to REG_B
+write SYS_CALL_PRINTLN to REG_D
+write OP_SYS_CALL to REG_OP
+cpu_exec
+
+// read cmd from keyboard
+write SYS_CALL_READ_INPUT to REG_D
+write OP_SYS_CALL to REG_OP
+cpu_exec
+
+copy REG_RES to var:user_input
+copy var:user_input to REG_A
+write SYS_CALL_PRINTLN to REG_D
+write OP_SYS_CALL to REG_OP
+cpu_exec
+
+copy var:user_input to REG_A
+write 1 to REG_B
+write " " to REG_C
+write OP_GET_COLUMN to REG_OP
+cpu_exec
+
+copy REG_RES to var:firstFile
+
+copy var:firstFile to REG_A
+write "" to REG_B
+write OP_CMP_EQ to REG_OP
+cpu_exec
+jump_if label:error
+
+copy var:user_input to REG_A
+write 2 to REG_B
+write " " to REG_C
+write OP_GET_COLUMN to REG_OP
+cpu_exec
+
+copy REG_RES to var:secondFile
+
+copy var:secondFile to REG_A
+write "" to REG_B
+write OP_CMP_EQ to REG_OP
+cpu_exec
+jump_if label:error
+
+label open_file
+    // let's open file 1:
+    copy var:firstFile to REG_A
+    write SYS_CALL_OPEN to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    jump_err label:file_not_found_first
+    copy REG_RES to var:first_file_desc
+
+    // let's open file 2:
+    copy var:secondFile to REG_A
+    write SYS_CALL_OPEN to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+    jump_err label:file_not_found_second
+    copy REG_RES to var:second_file_desc
+
+    // Read it line by line:
+    write 1 to var:counter
+label loop
+    // Attempt to read from first file:
+    copy var:first_file_desc to REG_A
+    copy var:counter to REG_B
+    write SYS_CALL_READ to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    // If read fails, set first file EOF flag:
+    jump_err label:set_first_eof
+
+    copy REG_RES to var:first_file_line
+    jump label:read_second
+
+label set_first_eof
+    write 1 to var:first_eof
+    jump label:read_second
+
+label read_second
+    // Attempt to read from second file:
+    copy var:second_file_desc to REG_A
+    copy var:counter to REG_B
+    write SYS_CALL_READ to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    // If read fails, set second file EOF flag:
+    jump_err label:set_second_eof
+    copy REG_RES to var:second_file_line
+    jump label:check_if_equal
+
+label check_if_equal
+
+    copy var:first_file_line to REG_A
+    write COLOR_GREEN to REG_B
+    write SYS_CALL_PRINTLN to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    copy var:second_file_line to REG_A
+    write COLOR_CYAN to REG_B
+    write SYS_CALL_PRINTLN to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    copy var:first_file_line to REG_A
+    copy var:second_file_line to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if_not label:difference_found
+
+    copy var:counter to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:counter
+
+    jump label:loop
+    
+label set_second_eof
+    write 1 to var:second_eof
+    jump label:check_eof
+
+label check_eof
+    copy var:first_eof to REG_A
+    copy var:second_eof to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+
+    jump_if label:files_identical
+
+    var msg
+    write "Files differ in length at line " to var:msg
+
+    copy var:msg to REG_A
+    copy var:counter to REG_B
+    write "" to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:msg
+
+    copy var:msg to REG_A
+    write SYS_CALL_PRINTLN to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    // Let's close file
+    copy var:first_file_desc to REG_A
+    write SYS_CALL_CLOSE to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    // Let's close file
+    copy var:second_file_desc to REG_A
+    write SYS_CALL_CLOSE to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    jump label:kernel_end
+
+label difference_found
+    write "Files differ at line " to var:msg
+
+    copy var:msg to REG_A
+    copy var:counter to REG_B
+    write "" to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+    copy REG_RES to var:msg
+
+    copy var:msg to REG_A
+    write " - File1: " to REG_B
+    cpu_exec
+    copy REG_RES to var:msg
+
+    copy var:msg to REG_A
+    copy var:first_file_line to REG_B
+    cpu_exec
+    copy REG_RES to var:msg
+
+    copy var:msg to REG_A
+    write " | File2: " to REG_B
+    cpu_exec
+    copy REG_RES to var:msg
+
+    copy var:msg to REG_A
+    copy var:second_file_line to REG_B
+    cpu_exec
+    copy REG_RES to var:msg
+
+    copy var:msg to REG_A
+    write SYS_CALL_PRINTLN to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    // Let's close file
+    copy var:first_file_desc to REG_A
+    write SYS_CALL_CLOSE to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    // Let's close file
+    copy var:second_file_desc to REG_A
+    write SYS_CALL_CLOSE to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    jump label:kernel_end
+
+label error
+    write "Error: One or both filenames were not provided." to REG_A
+    write COLOR_RED to REG_B
+    write SYS_CALL_PRINTLN to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+    jump label:kernel_end
+
+label file_not_found_first
+    var message1
+    write "Error: File " to var:message1
+    
+    copy var:message1 to REG_A
+    copy var:firstFile to REG_B
+    write " " to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+    copy REG_RES to var:message1
+
+    copy var:message1 to REG_A
+    write " not found." to REG_B
+    cpu_exec
+
+    copy REG_RES to var:message1
+
+    copy var:message1 to REG_A
+    write COLOR_RED to REG_B
+    write SYS_CALL_PRINTLN to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    jump label:kernel_end
+
+label file_not_found_second
+    var message2
+    write "Error: File " to var:message2
+    
+    copy var:message2 to REG_A
+    copy var:secondFile to REG_B
+    write " " to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+    copy REG_RES to var:message2
+
+    copy var:message2 to REG_A
+    write " not found." to REG_B
+    cpu_exec
+
+    copy REG_RES to var:message2
+
+    copy var:message2 to REG_A
+    write COLOR_RED to REG_B
+    write SYS_CALL_PRINTLN to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+    
+    jump label:kernel_end
+
+label files_identical
+    // Both files ended at the same time with no differences:
+    write "Files are identical" to REG_A
+    write COLOR_GREEN to REG_B
+    write SYS_CALL_PRINTLN to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    // Let's close file
+    copy var:first_file_desc to REG_A
+    write SYS_CALL_CLOSE to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    // Let's close file
+    copy var:second_file_desc to REG_A
+    write SYS_CALL_CLOSE to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    jump label:kernel_end
+
+label kernel_end
+
+    // Print bye message and exit:
+    write "Good bye!" to REG_A
+    write COLOR_GREEN to REG_B
+    write SYS_CALL_PRINTLN to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    write 0 to REG_A
+    write SYS_CALL_EXIT to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
